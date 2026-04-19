@@ -9,10 +9,11 @@ import urllib.request
 import json
 import yt_dlp.version
 import webbrowser
+import re
 from PIL import Image 
 
 # --- GÜNCEL LİNKLER ---
-GITHUB_LINK = "https://github.com/cf6inside/Nuklon-Media-Station"
+DRIVE_LINK = "https://drive.google.com/drive/u/0/folders/1mU0McXN5MA-fKKzRs0bWV9K9Cp9zL46z"
 VIDEO_LINK = "https://youtu.be/1Ee060Gl4GU"
 
 def kaynak_yolunu_bul(dosya_adi):
@@ -23,11 +24,11 @@ def kaynak_yolunu_bul(dosya_adi):
         temel_yol = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(temel_yol, dosya_adi)
 
-# Yollar
 MEVCUT_KLASOR = kaynak_yolunu_bul("") 
 IKON_YOLU = kaynak_yolunu_bul("ikon.ico")
 LOGO_YOLU = kaynak_yolunu_bul("logo.jpg")
 FFMPEG_YOLU = kaynak_yolunu_bul("ffmpeg.exe")
+FFPROBE_YOLU = kaynak_yolunu_bul("ffprobe.exe") # Süre ölçümü için eklendi
 
 ctk.set_appearance_mode("Dark")  
 ctk.set_default_color_theme("blue")  
@@ -36,10 +37,8 @@ class NuklonApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # --- UYGULAMA VE GÜNCELLEME DEĞİŞKENLERİ ---
-        self.MEVCUT_SURUM = 1.7  # Sürümü V1.7 yaptık!
-        self.GITHUB_VERSION_URL = "https://raw.githubusercontent.com/cf6inside/Nuklon-Media-Station/main/version.txt"
-        self.GITHUB_EXE_URL = "https://github.com/cf6inside/Nuklon-Media-Station/releases/latest/download/Nuklon_Medya_Merkezi.exe"
+        # --- UYGULAMA DEĞİŞKENLERİ ---
+        self.MEVCUT_SURUM = 1.7  
         
         # --- DİL SİSTEMİ (Sözlük Yapısı) ---
         self.current_lang = "tr"
@@ -50,22 +49,27 @@ class NuklonApp(ctk.CTk):
                 "sidebar_converter": "🔄 Format Dönüştürücü",
                 "sidebar_notes": "📝 Güncelleme Notları",
                 "sidebar_support": "🆘 Destek / Hakkında",
-                "lang_switch": "English Language",
                 "check_url": "Bağlantıyı Kontrol Et",
                 "start_download": "İndirmeyi Başlat",
                 "save_path": "Kayıt Yeri:",
                 "change_path": "📁 Klasör Değiştir",
                 "support_text": "Yardıma ihtiyacınız olursa aşağıdaki bağlantıları kullanabilirsiniz.",
-                "github_btn": "🌐 GitHub Sayfası (Yeni Sürüm)",
+                "drive_btn": "☁️ Google Drive (Sürümler)",
                 "status_ready": "Bekleniyor...",
-                "update_found": "Yeni Sürüm Bulundu!",
-                "update_msg": "Nüklon Medya Merkezi V{} yayınlandı! Şimdi güncellensin mi?",
                 "placeholder_url": "Video veya oynatma listesi URL'si yapıştırın...",
                 "chk_playlist": "Bu link bir oynatma listesi",
                 "conv_title": "Format Dönüştürücü",
-                "conv_select_file": "📁 Bilgisayardan Dosya Seç",
+                "conv_select_file": "📁 Dosya/Dosyalar Seç",
                 "conv_target": "Hedef Format:",
-                "conv_btn": "Dönüştür"
+                "conv_btn": "Dönüştür",
+                "btn_drive_dl": "⬇️ Drive'dan Yeni Sürüm İndir",
+                "ytdlp_checking": "yt-dlp: Kontrol ediliyor...",
+                "ytdlp_uptodate": "✅ yt-dlp: Güncel",
+                "ytdlp_outdated": "⚠️ yt-dlp: Eski Sürüm!",
+                "ytdlp_error": "yt-dlp: Bağlantı Hatası",
+                "files_selected": "{} dosya seçildi",
+                "conv_batch_status": "Dönüştürülüyor ({}/{})... Lütfen Bekleyin",
+                "conv_all_success": "✅ Tüm Dosyalar Başarıyla Dönüştürüldü!"
             },
             "en": {
                 "title": "Nuklon Media Station V1.7",
@@ -73,29 +77,33 @@ class NuklonApp(ctk.CTk):
                 "sidebar_converter": "🔄 Format Converter",
                 "sidebar_notes": "📝 Release Notes",
                 "sidebar_support": "🆘 Support / About",
-                "lang_switch": "Türkçe Dil",
                 "check_url": "Check Link",
                 "start_download": "Start Download",
                 "save_path": "Save Path:",
                 "change_path": "📁 Change Folder",
                 "support_text": "If you need help, you can use the links below.",
-                "github_btn": "🌐 GitHub Page (New Version)",
+                "drive_btn": "☁️ Google Drive (Versions)",
                 "status_ready": "Ready...",
-                "update_found": "New Version Found!",
-                "update_msg": "Nuklon Media Station V{} is available! Update now?",
                 "placeholder_url": "Paste video or playlist URL here...",
                 "chk_playlist": "This link is a playlist",
                 "conv_title": "Format Converter",
-                "conv_select_file": "📁 Select File From Computer",
+                "conv_select_file": "📁 Select File(s)",
                 "conv_target": "Target Format:",
-                "conv_btn": "Convert"
+                "conv_btn": "Convert",
+                "btn_drive_dl": "⬇️ Download Update from Drive",
+                "ytdlp_checking": "yt-dlp: Checking...",
+                "ytdlp_uptodate": "✅ yt-dlp: Up to date",
+                "ytdlp_outdated": "⚠️ yt-dlp: Outdated!",
+                "ytdlp_error": "yt-dlp: Connection Error",
+                "files_selected": "{} files selected",
+                "conv_batch_status": "Converting ({}/{})... Please Wait",
+                "conv_all_success": "✅ All Files Converted Successfully!"
             }
         }
 
-        # Pencere Ayarları
         self.title(self.texts[self.current_lang]["title"])
-        self.geometry("950x650")
-        self.minsize(850, 600)
+        self.geometry("950x700") 
+        self.minsize(850, 650)
         if os.path.exists(IKON_YOLU):
             self.iconbitmap(IKON_YOLU)
             
@@ -113,10 +121,9 @@ class NuklonApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.secilen_dosya_yolu = ""
+        self.secilen_dosyalar = [] # Artık liste tutuyoruz
         self.download_path = os.path.join(os.path.expanduser("~"), "Downloads")
 
-        # --- ARAYÜZ KURULUMU ---
         self.setup_sidebar()
         self.setup_downloader_frame()
         self.setup_converter_frame()
@@ -124,25 +131,23 @@ class NuklonApp(ctk.CTk):
         self.setup_support_frame()
 
         self.select_frame_by_name("indirici")
-        self.check_auto_update()
-        self.check_app_update()
+        self.check_auto_update() 
 
-    def toggle_language(self):
-        """Dili değiştirir ve tüm UI metinlerini günceller."""
-        self.current_lang = "en" if self.current_lang == "tr" else "tr"
+    def change_language_from_menu(self, choice):
+        if "Türkçe" in choice:
+            self.current_lang = "tr"
+        else:
+            self.current_lang = "en"
         self.update_ui_texts()
 
     def update_ui_texts(self):
-        """UI üzerindeki tüm metinleri seçili dile göre yeniler."""
         t = self.texts[self.current_lang]
         self.title(t["title"])
         self.btn_indirici.configure(text=t["sidebar_download"])
         self.btn_donusturucu.configure(text=t["sidebar_converter"])
         self.btn_notlar.configure(text=t["sidebar_notes"])
         self.btn_destek.configure(text=t["sidebar_support"])
-        self.lang_btn.configure(text=t["lang_switch"])
         
-        # İndirici Sekmesi
         self.lbl_indirici_title.configure(text=t["sidebar_download"].replace("⬇️ ", ""))
         self.url_entry.configure(placeholder_text=t["placeholder_url"])
         self.check_playlist.configure(text=t["chk_playlist"])
@@ -151,16 +156,30 @@ class NuklonApp(ctk.CTk):
         self.lbl_path_title.configure(text=t["save_path"])
         self.btn_select_path.configure(text=t["change_path"])
         
-        # Dönüştürücü Sekmesi
         self.lbl_conv_title.configure(text=t["conv_title"])
         self.btn_select_file.configure(text=t["conv_select_file"])
         self.lbl_target_format.configure(text=t["conv_target"])
         self.btn_convert.configure(text=t["conv_btn"])
 
-        # Destek Sekmesi
         self.lbl_destek_title.configure(text=t["sidebar_support"])
         self.support_info_lbl.configure(text=t["support_text"])
-        self.github_nav_btn.configure(text=t["github_btn"])
+        self.drive_nav_btn.configure(text=t["drive_btn"])
+        
+        self.btn_dl_drive.configure(text=t["btn_drive_dl"])
+        
+        guncel_metin = self.ytdlp_status_label.cget("text")
+        if "✅" in guncel_metin:
+            self.ytdlp_status_label.configure(text=t["ytdlp_uptodate"])
+        elif "⚠️" in guncel_metin:
+            self.ytdlp_status_label.configure(text=t["ytdlp_outdated"])
+        elif "Hata" in guncel_metin or "Error" in guncel_metin:
+            self.ytdlp_status_label.configure(text=t["ytdlp_error"])
+        else:
+            self.ytdlp_status_label.configure(text=t["ytdlp_checking"])
+            
+        if self.secilen_dosyalar:
+            if len(self.secilen_dosyalar) > 1:
+                self.lbl_selected_file.configure(text=t["files_selected"].format(len(self.secilen_dosyalar)))
 
     def setup_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=self.sidebar_color)
@@ -187,18 +206,28 @@ class NuklonApp(ctk.CTk):
         self.btn_destek = ctk.CTkButton(self.sidebar_frame, text=self.texts[self.current_lang]["sidebar_support"], font=self.font_main, corner_radius=12, fg_color="transparent", text_color=self.text_main, hover_color=("gray70", "gray30"), command=lambda: self.select_frame_by_name("destek"))
         self.btn_destek.grid(row=4, column=0, padx=20, pady=5, sticky="ew")
 
-        # DİL DEĞİŞTİRME BUTONU
-        self.lang_btn = ctk.CTkButton(self.sidebar_frame, text=self.texts[self.current_lang]["lang_switch"], font=("Roboto", 12), fg_color=self.card_color, text_color=self.text_main, command=self.toggle_language)
-        self.lang_btn.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        self.lang_var = ctk.StringVar(value="🇹🇷 Türkçe")
+        self.lang_menu = ctk.CTkOptionMenu(
+            self.sidebar_frame, 
+            values=["🇹🇷 Türkçe", "🇬🇧 English"],
+            variable=self.lang_var,
+            command=self.change_language_from_menu,
+            font=("Roboto", 13),
+            fg_color=self.card_color,
+            button_color=("gray75", "gray25"),
+            button_hover_color=("gray70", "gray30"),
+            text_color=self.text_main
+        )
+        self.lang_menu.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
         self.theme_switch = ctk.CTkSwitch(self.sidebar_frame, text="Koyu Tema", font=("Roboto", 12), command=self.change_theme)
         self.theme_switch.grid(row=7, column=0, padx=20, pady=10, sticky="w")
         self.theme_switch.select()
 
-        self.version_label = ctk.CTkLabel(self.sidebar_frame, text=f"Sürüm V{self.MEVCUT_SURUM} Stable", font=("Roboto", 11), text_color=self.text_muted)
-        self.version_label.grid(row=8, column=0, padx=20, pady=(5, 20), sticky="w")
+        self.ytdlp_status_label = ctk.CTkLabel(self.sidebar_frame, text=self.texts[self.current_lang]["ytdlp_checking"], font=("Roboto", 12, "bold"), text_color=self.text_muted)
+        self.ytdlp_status_label.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="w")
         
-        self.btn_update_download = ctk.CTkButton(self.sidebar_frame, text="⬇️ Yeni Sürümü İndir", font=("Roboto", 11, "bold"), fg_color="#ff9800", height=25, command=lambda: webbrowser.open(GITHUB_LINK))
+        self.btn_dl_drive = ctk.CTkButton(self.sidebar_frame, text=self.texts[self.current_lang]["btn_drive_dl"], font=("Roboto", 11, "bold"), fg_color="#ff9800", text_color="black", hover_color="#e68a00", height=28, command=lambda: webbrowser.open(DRIVE_LINK))
 
     def setup_downloader_frame(self):
         self.frame_indirici = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -287,7 +316,10 @@ class NuklonApp(ctk.CTk):
 
         self.conv_progress = ctk.CTkProgressBar(self.frame_donusturucu, corner_radius=12, height=10, progress_color=self.accent_color)
         self.conv_progress.set(0)
+        self.conv_progress.grid(row=3, column=0, padx=40, pady=(10, 0), sticky="ew") 
+        
         self.lbl_conv_status = ctk.CTkLabel(self.frame_donusturucu, text="", font=("Roboto", 12))
+        self.lbl_conv_status.grid(row=4, column=0, padx=40, pady=(5, 20), sticky="w") 
 
     def setup_notes_frame(self):
         self.frame_notlar = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -299,20 +331,7 @@ class NuklonApp(ctk.CTk):
         self.textbox_notlar = ctk.CTkTextbox(self.frame_notlar, font=self.font_main, corner_radius=12, fg_color=self.card_color)
         self.textbox_notlar.grid(row=1, column=0, padx=40, pady=(0, 40), sticky="nsew")
         
-        metin = f"""=== NÜKLON MEDYA İSTASYONU V1.7 ===
-YENİLİKLER (V1.7):
-+ İngilizce Dil Seçeneği (English Language Support) eklendi.
-+ Google Drive bağlantıları tamamen GitHub üzerine taşındı.
-+ Otonom güncelleme sistemi V1.7 ile stabilize edildi.
-------------------------------------------------
-V1.6 - Otonom Güncelleme & GitHub Entegrasyonu:
-+ Uygulamaya otonom güncelleme (Auto-Updater) motoru eklendi.
-+ Proje GitHub Releases üzerine taşındı.
-------------------------------------------------
-V1.5 - Modern Nesne Yönelimli Mimari
-+ Arayüz tamamen class yapısıyla (OOP) sıfırdan kodlandı.
-+ "Aşamalı Gösterim" ve "Gömülü Dosya" mimarisi eklendi.
-"""
+        metin = f"=== NÜKLON MEDYA İSTASYONU V1.7 ===\nYENİLİKLER (V1.7):\n+ Siyah açılış ekranı (CMD) tamamen gizlendi.\n+ Dönüştürücüye Toplu Dosya (Batch) desteği ve saniyelik okuma yapan FFprobe ilerleme yüzdesi eklendi.\n+ Uluslararası, bayraklı ve açılır menülü (Dropdown) dil seçici eklendi.\n+ Akıllı yt-dlp durum göstergesi sol menüye entegre edildi.\n------------------------------------------------\nV1.6 - İngilzce Dil Seçeneği Eklendi.\n------------------------------------------------\nV1.5 - Modern Nesne Yönelimli Mimari\n+ Arayüz tamamen class yapısıyla (OOP) sıfırdan kodlandı."
         self.textbox_notlar.insert("0.0", metin)
         self.textbox_notlar.configure(state="disabled") 
 
@@ -330,12 +349,12 @@ V1.5 - Modern Nesne Yönelimli Mimari
         self.support_info_lbl = ctk.CTkLabel(card, text=t["support_text"], font=self.font_main, justify="center")
         self.support_info_lbl.pack(pady=30, padx=20)
         
-        self.github_nav_btn = ctk.CTkButton(card, text=t["github_btn"], font=self.font_bold, height=45, fg_color="#333", command=lambda: webbrowser.open(GITHUB_LINK))
-        self.github_nav_btn.pack(pady=10)
+        self.drive_nav_btn = ctk.CTkButton(card, text=t["drive_btn"], font=self.font_bold, height=45, fg_color="#4285F4", hover_color="#2c6cd6", command=lambda: webbrowser.open(DRIVE_LINK))
+        self.drive_nav_btn.pack(pady=10)
         
-        ctk.CTkButton(card, text="▶️ YouTube", font=self.font_bold, height=45, fg_color="#FF0000", command=lambda: webbrowser.open(VIDEO_LINK)).pack(pady=(10, 30))
+        ctk.CTkButton(card, text="▶️ YouTube", font=self.font_bold, height=45, fg_color="#FF0000", hover_color="#cc0000", command=lambda: webbrowser.open(VIDEO_LINK)).pack(pady=(10, 30))
 
-    # --- LOJİK METOTLAR (V1.6 İLE AYNI) ---
+    # --- LOJİK METOTLAR ---
     def select_download_path(self):
         klasor = filedialog.askdirectory()
         if klasor:
@@ -357,77 +376,139 @@ V1.5 - Modern Nesne Yönelimli Mimari
             self.after(0, lambda: self.lbl_video_channel.configure(text=f"Kanal: {info.get('uploader', 'Unknown')}"))
             self.after(0, lambda: self.info_card_frame.grid(row=4, column=0, padx=40, pady=20, sticky="ew"))
             self.after(0, lambda: self.options_frame.grid(row=5, column=0, padx=40, pady=0, sticky="ew"))
-        except: pass
-        finally: self.after(0, lambda: self.btn_check_url.configure(state="normal"))
+        except Exception as e: 
+            self.after(0, lambda: messagebox.showerror("Hata", f"Link kontrol edilemedi:\n{e}"))
+        finally: 
+            self.after(0, lambda: self.btn_check_url.configure(state="normal"))
 
     def start_download_logic(self):
         url = self.url_entry.get()
+        res = self.format_combo.get()
+        pl = self.playlist_var.get()
+        
         self.btn_start_download.configure(state="disabled")
         self.progress_bar.grid(row=2, column=0, sticky="ew", pady=5)
+        self.progress_bar.set(0)
+        self.lbl_progress_details.configure(text="İndirme başlatılıyor...", text_color=self.text_muted)
         self.lbl_progress_details.grid(row=3, column=0, sticky="w")
-        threading.Thread(target=self._download_thread, args=(url, self.format_combo.get(), self.playlist_var.get()), daemon=True).start()
+        
+        threading.Thread(target=self._download_thread, args=(url, res, pl), daemon=True).start()
 
     def _download_thread(self, url, res, pl):
         try:
             def hook(d):
                 if d['status'] == 'downloading':
-                    p = d.get('_percent_str', '0%').replace('%','')
-                    self.after(0, lambda: self.progress_bar.set(float(p)/100))
+                    p_str = d.get('_percent_str', '0%').replace('%', '').strip()
+                    p_str = re.sub(r'\x1b[^m]*m', '', p_str) 
+                    try:
+                        oran = float(p_str) / 100.0
+                        self.after(0, lambda: self.progress_bar.set(oran))
+                        self.after(0, lambda: self.lbl_progress_details.configure(text=f"İndiriliyor: %{p_str}"))
+                    except: pass
+                elif d['status'] == 'finished':
+                    self.after(0, lambda: self.lbl_progress_details.configure(text="Dosyalar birleştiriliyor (Lütfen bekleyin)..."))
             
-            opts = {'progress_hooks': [hook], 'ffmpeg_location': MEVCUT_KLASOR, 'outtmpl': f'{self.download_path}/%(title)s.%(ext)s'}
-            with yt_dlp.YoutubeDL(opts) as ydl: ydl.download([url])
-            self.after(0, lambda: self.lbl_progress_details.configure(text="✅ Done!", text_color="green"))
-        except: pass
-        finally: self.after(0, lambda: self.btn_start_download.configure(state="normal"))
+            fmt_str = "bestvideo+bestaudio/best"
+            if res == "1080p": fmt_str = "bestvideo[height<=1080]+bestaudio/best"
+            elif res == "720p": fmt_str = "bestvideo[height<=720]+bestaudio/best"
+            elif res == "480p": fmt_str = "bestvideo[height<=480]+bestaudio/best"
+            elif res == "Sadece Ses (MP3)": fmt_str = "bestaudio/best"
 
+            opts = {
+                'progress_hooks': [hook], 
+                'ffmpeg_location': MEVCUT_KLASOR, 
+                'outtmpl': f'{self.download_path}/%(title)s.%(ext)s',
+                'noplaylist': not pl,
+                'nocolor': True, 
+                'format': fmt_str
+            }
+            
+            if res == "Sadece Ses (MP3)":
+                opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
+
+            with yt_dlp.YoutubeDL(opts) as ydl: 
+                ydl.download([url])
+                
+            self.after(0, lambda: self.lbl_progress_details.configure(text="✅ İndirme Tamamlandı!", text_color="green"))
+            self.after(0, lambda: self.progress_bar.set(1))
+            
+        except Exception as e:
+            self.after(0, lambda e=e: self.lbl_progress_details.configure(text=f"❌ Hata: {str(e)[:50]}...", text_color="red"))
+        finally: 
+            self.after(0, lambda: self.btn_start_download.configure(state="normal"))
+
+    # --- YENİ ÇOKLU SEÇİM VE FFPROBE ENTEGRASYONU ---
     def select_file_logic(self):
-        yol = filedialog.askopenfilename()
-        if yol:
-            self.secilen_dosya_yolu = yol
-            self.lbl_selected_file.configure(text=os.path.basename(yol))
+        # askopenfilename yerine askopenfilenames (çoğul) kullanıyoruz
+        yollar = filedialog.askopenfilenames()
+        if yollar:
+            self.secilen_dosyalar = list(yollar)
+            t = self.texts[self.current_lang]
+            
+            if len(self.secilen_dosyalar) == 1:
+                self.lbl_selected_file.configure(text=os.path.basename(self.secilen_dosyalar[0]))
+            else:
+                self.lbl_selected_file.configure(text=t["files_selected"].format(len(self.secilen_dosyalar)))
+
+    def _get_duration(self, dosya_yolu):
+        """ ffprobe ile medya dosyasının toplam süresini saniye cinsinden bulur """
+        try:
+            cmd = [FFPROBE_YOLU, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", dosya_yolu]
+            sonuc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            return float(sonuc.stdout.strip())
+        except:
+            return 0.0
 
     def start_convert_logic(self):
-        if not self.secilen_dosya_yolu: return
+        if not self.secilen_dosyalar: return
         self.btn_convert.configure(state="disabled")
-        threading.Thread(target=self._convert_thread, args=(self.conv_combo.get(),), daemon=True).start()
+        self.conv_progress.configure(mode="determinate")
+        self.conv_progress.set(0)
+        
+        threading.Thread(target=self._convert_batch_thread, args=(self.conv_combo.get(),), daemon=True).start()
 
-    def _convert_thread(self, fmt):
-        try:
-            cikti = os.path.splitext(self.secilen_dosya_yolu)[0] + f"_new.{fmt}"
-            subprocess.run([FFMPEG_YOLU, "-y", "-i", self.secilen_dosya_yolu, cikti], creationflags=subprocess.CREATE_NO_WINDOW)
-            self.after(0, lambda: self.lbl_conv_status.configure(text="✅ Success!", text_color="green"))
-        except: pass
-        finally: self.after(0, lambda: self.btn_convert.configure(state="normal"))
-
-    # --- OTONOM GÜNCELLEME SİSTEMİ ---
-    def check_app_update(self):
-        threading.Thread(target=self._app_update_thread, daemon=True).start()
-
-    def _app_update_thread(self):
-        try:
-            with urllib.request.urlopen(self.GITHUB_VERSION_URL, timeout=5) as res:
-                ver = res.read().decode('utf-8').strip()
-            if float(ver) > self.MEVCUT_SURUM:
-                self.after(0, lambda: self._show_update_dialog(ver))
-        except: pass
-
-    def _show_update_dialog(self, ver):
+    def _convert_batch_thread(self, fmt):
         t = self.texts[self.current_lang]
-        if messagebox.askyesno(t["update_found"], t["update_msg"].format(ver)):
-            threading.Thread(target=self._download_and_apply_update, daemon=True).start()
-
-    def _download_and_apply_update(self):
-        try:
-            self.after(0, lambda: self.version_label.configure(text="Downloading...", text_color="orange"))
-            urllib.request.urlretrieve(self.GITHUB_EXE_URL, "Nuklon_Yeni.exe")
-            self._create_and_run_updater_bat()
-        except: pass
-
-    def _create_and_run_updater_bat(self):
-        bat = f'@echo off\ntimeout /t 2 /nobreak >nul\ndel "Nuklon Medya Merkezi.exe"\nren "Nuklon_Yeni.exe" "Nuklon Medya Merkezi.exe"\nstart "" "Nuklon Medya Merkezi.exe"\ndel "%~f0"'
-        with open("update.bat", "w") as f: f.write(bat)
-        subprocess.Popen(["update.bat"], creationflags=subprocess.CREATE_NO_WINDOW)
-        os._exit(0)
+        toplam_dosya = len(self.secilen_dosyalar)
+        
+        # Seçilen tüm dosyaları sırayla işlemek için döngü (Batch Processing)
+        for index, dosya in enumerate(self.secilen_dosyalar):
+            # Durum metnini (1/3) dönüştürülüyor şeklinde güncelle
+            self.after(0, lambda i=index+1: self.lbl_conv_status.configure(text=t["conv_batch_status"].format(i, toplam_dosya), text_color=self.text_muted))
+            self.after(0, lambda: self.conv_progress.set(0))
+            
+            # 1. Dosyanın toplam süresini bul
+            sure = self._get_duration(dosya)
+            cikti = os.path.splitext(dosya)[0] + f"_new.{fmt}"
+            
+            # 2. FFmpeg ile dönüştürme işlemini canlı okuma (pipe) modunda başlat
+            cmd = [FFMPEG_YOLU, "-y", "-i", dosya, cikti]
+            try:
+                process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8', errors='ignore', creationflags=subprocess.CREATE_NO_WINDOW)
+                
+                # FFmpeg'in anlık çıktılarını (stderr) satır satır oku
+                for line in process.stderr:
+                    if "time=" in line and sure > 0:
+                        # "time=00:01:23.45" gibi metinden zamanı ayıkla
+                        match = re.search(r"time=(\d+):(\d+):(\d+\.\d+)", line)
+                        if match:
+                            h, m, s = match.groups()
+                            gecen_sure = float(h)*3600 + float(m)*60 + float(s)
+                            oran = min(gecen_sure / sure, 1.0)
+                            self.after(0, lambda o=oran: self.conv_progress.set(o))
+                process.wait()
+            except Exception as e:
+                self.after(0, lambda err=e: print(f"Dönüştürme Hatası: {err}"))
+                continue
+                
+        # Tüm döngü bittiğinde
+        self.after(0, lambda: self.lbl_conv_status.configure(text=t["conv_all_success"], text_color="green"))
+        self.after(0, lambda: self.conv_progress.set(1))
+        self.after(0, lambda: self.btn_convert.configure(state="normal"))
 
     def check_auto_update(self):
         threading.Thread(target=self._yt_dlp_check, daemon=True).start()
@@ -436,10 +517,22 @@ V1.5 - Modern Nesne Yönelimli Mimari
         try:
             with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json", timeout=5) as res:
                 data = json.loads(res.read())
-                if yt_dlp.version.__version__ < data["info"]["version"]:
-                    self.after(0, lambda: self.version_label.configure(text="⚠️ Altyapı Eski!", text_color="orange"))
-                    self.after(0, lambda: self.btn_update_download.grid(row=9, column=0, padx=20, pady=(0, 20), sticky="w"))
-        except: pass
+                en_guncel = data["info"]["version"]
+                mevcut = yt_dlp.version.__version__
+                
+                m_list = [int(x) for x in mevcut.replace("-", ".").split(".") if x.isdigit()]
+                g_list = [int(x) for x in en_guncel.replace("-", ".").split(".") if x.isdigit()]
+                
+                if m_list < g_list:
+                    t = self.texts[self.current_lang]
+                    self.after(0, lambda: self.ytdlp_status_label.configure(text=t["ytdlp_outdated"], text_color="#ff9800"))
+                    self.after(0, lambda: self.btn_dl_drive.grid(row=9, column=0, padx=20, pady=(0, 20), sticky="ew"))
+                else:
+                    t = self.texts[self.current_lang]
+                    self.after(0, lambda: self.ytdlp_status_label.configure(text=t["ytdlp_uptodate"], text_color="green"))
+        except Exception as e: 
+            t = self.texts[self.current_lang]
+            self.after(0, lambda: self.ytdlp_status_label.configure(text=t["ytdlp_error"], text_color="red"))
 
     def select_frame_by_name(self, name):
         for btn in [self.btn_indirici, self.btn_donusturucu, self.btn_notlar, self.btn_destek]: btn.configure(fg_color="transparent")
