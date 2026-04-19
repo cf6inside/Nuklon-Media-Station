@@ -42,9 +42,16 @@ class NuklonApp(ctk.CTk):
         super().__init__()
 
         # --- PENCERE AYARLARI ---
-        self.title("Nüklon Medya İstasyonu V1.5")
+        self.title("Nüklon Medya İstasyonu V1.6")
         self.geometry("950x650")
         self.minsize(850, 600)
+        
+        # --- UYGULAMA VE GÜNCELLEME DEĞİŞKENLERİ ---
+        self.MEVCUT_SURUM = 1.6
+        # version.txt dosyasını okuyacağımız ham (raw) link:
+        self.GITHUB_VERSION_URL = "https://raw.githubusercontent.com/cf6inside/Nuklon-Media-Station/main/version.txt"
+        # Yeni .exe dosyasını indireceğimiz link (Release sekmesinden çekeceğiz):
+        self.GITHUB_EXE_URL = "https://github.com/cf6inside/Nuklon-Media-Station/releases/latest/download/Nuklon_Medya_Merkezi.exe"
         
         if os.path.exists(IKON_YOLU):
             self.iconbitmap(IKON_YOLU)
@@ -78,7 +85,9 @@ class NuklonApp(ctk.CTk):
 
         # Başlangıç
         self.select_frame_by_name("indirici")
-        self.check_auto_update()
+        # Başlangıç kontrolleri
+        self.check_auto_update() # Mevcut yt-dlp kontrolün
+        self.check_app_update()  # YENİ: Uygulama güncelleme kontrolümüz
 
     # ==========================================
     # YAN MENÜ (SIDEBAR)
@@ -491,7 +500,84 @@ V1.0 - Temel Sürüm
 
     def check_auto_update(self):
         threading.Thread(target=self._auto_update_thread, daemon=True).start()
+    # ==========================================
+    # OTONOM GÜNCELLEME (AUTO-UPDATER) SİSTEMİ
+    # ==========================================
+    def check_app_update(self):
+        """Uygulamanın sürümünü arka planda kontrol eder."""
+        threading.Thread(target=self._app_update_thread, daemon=True).start()
+
+    def _app_update_thread(self):
+        try:
+            # GitHub'daki version.txt dosyasını oku
+            req = urllib.request.Request(self.GITHUB_VERSION_URL)
+            with urllib.request.urlopen(req, timeout=5) as response:
+                en_guncel_surum_str = response.read().decode('utf-8').strip()
+                en_guncel_surum = float(en_guncel_surum_str)
+            
+            # Eğer GitHub'daki sürüm bizdekinden büyükse
+            if en_guncel_surum > self.MEVCUT_SURUM:
+                self.after(0, lambda: self._show_update_dialog(en_guncel_surum_str))
+        except Exception as e:
+            print("Uygulama güncelleme kontrolü başarısız:", e)
+
+    def _show_update_dialog(self, yeni_surum):
+        """Yeni sürüm bulunduğunda kullanıcıya sorar."""
+        cevap = messagebox.askyesno(
+            "Yeni Sürüm Bulundu!", 
+            f"Nüklon Medya Merkezi V{yeni_surum} yayınlandı!\n\nŞu anki sürümünüz: V{self.MEVCUT_SURUM}\n\nŞimdi arka planda indirilip güncellenmesini ister misiniz?"
+        )
+        if cevap:
+            threading.Thread(target=self._download_and_apply_update, daemon=True).start()
+
+    def _download_and_apply_update(self):
+        """Yeni sürümü indirir ve Nöbet Değişimi betiğini çalıştırır."""
+        try:
+            self.after(0, lambda: self.version_label.configure(text="Yeni sürüm indiriliyor... (Lütfen programı kapatmayın)", text_color="#ff9800"))
+            
+            yeni_exe_yolu = "Nuklon_Yeni.exe"
+            
+            # 1. Yeni EXE'yi indir
+            urllib.request.urlretrieve(self.GITHUB_EXE_URL, yeni_exe_yolu)
+            
+            self.after(0, lambda: self.version_label.configure(text="İndirme tamamlandı! Yeniden başlatılıyor...", text_color="green"))
+            
+            # 2. Nöbet Değişimi (.bat) dosyasını oluştur ve çalıştır
+            self._create_and_run_updater_bat()
+            
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Güncelleme Hatası", f"Dosya indirilemedi. Lütfen internet bağlantınızı kontrol edin.\n\nDetay: {e}"))
+            self.after(0, lambda: self.version_label.configure(text=f"Sürüm V{self.MEVCUT_SURUM}", text_color=self.text_muted))
+
+    def _create_and_run_updater_bat(self):
+        """Eski programı silip yenisini başlatan geçici bir .bat oluşturur."""
+        bat_icerik = """@echo off
+:: Mevcut programin kapanmasi icin 2 saniye bekle
+timeout /t 2 /nobreak >nul
+
+:: Eski programi sil
+del "Nuklon Medya Merkezi.exe"
+
+:: Yeni programin adini orijinale cevir
+ren "Nuklon_Yeni.exe" "Nuklon Medya Merkezi.exe"
+
+:: Yeni programi baslat
+start "" "Nuklon Medya Merkezi.exe"
+
+:: Bu bat dosyasini (kendini) yok et
+del "%~f0"
+"""
+        bat_yolu = "guncelleme_yardimcisi.bat"
+        with open(bat_yolu, "w", encoding="utf-8") as f:
+            f.write(bat_icerik)
+            
+        # Bat dosyasını konsol penceresi göstermeden (gizli) çalıştır
+        gizleme = subprocess.STARTUPINFO()
+        gizleme.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        subprocess.Popen([bat_yolu], startupinfo=gizleme)
         
+        # Mevcut programı anında kapat
+        os._exit(0)
     def _auto_update_thread(self):
         try:
             req = urllib.request.Request("https://pypi.org/pypi/yt-dlp/json")
