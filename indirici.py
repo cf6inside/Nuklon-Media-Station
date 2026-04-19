@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import filedialog, messagebox
 import yt_dlp
 import os
@@ -14,7 +15,7 @@ from PIL import Image
 
 # --- GÜNCEL LİNKLER ---
 DRIVE_LINK = "https://drive.google.com/drive/u/0/folders/1mU0McXN5MA-fKKzRs0bWV9K9Cp9zL46z"
-VIDEO_LINK = "https://youtu.be/1Ee060Gl4GU"
+VIDEO_LINK = "https://youtu.be/q7Wl7vrAWwM"
 
 def kaynak_yolunu_bul(dosya_adi):
     """ .exe içine gömülü dosyaların geçici yolunu (MEIPASS) bulur """
@@ -28,7 +29,7 @@ MEVCUT_KLASOR = kaynak_yolunu_bul("")
 IKON_YOLU = kaynak_yolunu_bul("ikon.ico")
 LOGO_YOLU = kaynak_yolunu_bul("logo.jpg")
 FFMPEG_YOLU = kaynak_yolunu_bul("ffmpeg.exe")
-FFPROBE_YOLU = kaynak_yolunu_bul("ffprobe.exe") # Süre ölçümü için eklendi
+FFPROBE_YOLU = kaynak_yolunu_bul("ffprobe.exe") 
 
 ctk.set_appearance_mode("Dark")  
 ctk.set_default_color_theme("blue")  
@@ -37,14 +38,13 @@ class NuklonApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # --- UYGULAMA DEĞİŞKENLERİ ---
-        self.MEVCUT_SURUM = 1.7  
+        self.MEVCUT_SURUM = 1.8  
         
-        # --- DİL SİSTEMİ (Sözlük Yapısı) ---
+        # --- DİL SİSTEMİ VE ÖZEL AÇIKLAMALAR ---
         self.current_lang = "tr"
         self.texts = {
             "tr": {
-                "title": "Nüklon Medya İstasyonu V1.7",
+                "title": "Nüklon Medya İstasyonu V1.8",
                 "sidebar_download": "⬇️ Video İndirici",
                 "sidebar_converter": "🔄 Format Dönüştürücü",
                 "sidebar_notes": "📝 Güncelleme Notları",
@@ -54,6 +54,8 @@ class NuklonApp(ctk.CTk):
                 "save_path": "Kayıt Yeri:",
                 "change_path": "📁 Klasör Değiştir",
                 "support_text": "Yardıma ihtiyacınız olursa aşağıdaki bağlantıları kullanabilirsiniz.",
+                "support_custom": "Bu program Can ÖKTEN tarafındanyt-dlp ve FFmpeg altyapısı kullanılarak Gemini aracılığıyla hazırlanmıştır. İstediğiniz videoyu kolayca indirebilir ve elinizdeki videoların formatlarını değiştirebilirsiniz. İyi kullanımlar!\n 2026 Nüklon Medya Merkezi, Can ÖKTEN" 
+                ,
                 "drive_btn": "☁️ Google Drive (Sürümler)",
                 "status_ready": "Bekleniyor...",
                 "placeholder_url": "Video veya oynatma listesi URL'si yapıştırın...",
@@ -69,10 +71,13 @@ class NuklonApp(ctk.CTk):
                 "ytdlp_error": "yt-dlp: Bağlantı Hatası",
                 "files_selected": "{} dosya seçildi",
                 "conv_batch_status": "Dönüştürülüyor ({}/{})... Lütfen Bekleyin",
-                "conv_all_success": "✅ Tüm Dosyalar Başarıyla Dönüştürüldü!"
+                "conv_all_success": "✅ Tüm Dosyalar Başarıyla Dönüştürüldü!",
+                "paste_label": "Yapıştır",
+                "btn_cancel": "İptal Et",
+                "status_cancelled": "❌ İşlem İptal Edildi!"
             },
             "en": {
-                "title": "Nuklon Media Station V1.7",
+                "title": "Nuklon Media Station V1.8",
                 "sidebar_download": "⬇️ Video Downloader",
                 "sidebar_converter": "🔄 Format Converter",
                 "sidebar_notes": "📝 Release Notes",
@@ -82,6 +87,7 @@ class NuklonApp(ctk.CTk):
                 "save_path": "Save Path:",
                 "change_path": "📁 Change Folder",
                 "support_text": "If you need help, you can use the links below.",
+                "support_custom": "This program was created by Can ÖKTEN via Gemini using yt-dlp and FFmpeg formats. You can easily download any video you want and change the formats of your existing videos. Enjoy! \n2026 Nuklon Media Center, Can ÖKTEN",
                 "drive_btn": "☁️ Google Drive (Versions)",
                 "status_ready": "Ready...",
                 "placeholder_url": "Paste video or playlist URL here...",
@@ -97,7 +103,10 @@ class NuklonApp(ctk.CTk):
                 "ytdlp_error": "yt-dlp: Connection Error",
                 "files_selected": "{} files selected",
                 "conv_batch_status": "Converting ({}/{})... Please Wait",
-                "conv_all_success": "✅ All Files Converted Successfully!"
+                "conv_all_success": "✅ All Files Converted Successfully!",
+                "paste_label": "Paste",
+                "btn_cancel": "Cancel",
+                "status_cancelled": "❌ Process Cancelled!"
             }
         }
 
@@ -121,8 +130,13 @@ class NuklonApp(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        self.secilen_dosyalar = [] # Artık liste tutuyoruz
+        self.secilen_dosyalar = [] 
         self.download_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        
+        # İptal Kontrol Bayrakları
+        self.cancel_download_flag = False
+        self.cancel_convert_flag = False
+        self.current_ffmpeg_process = None
 
         self.setup_sidebar()
         self.setup_downloader_frame()
@@ -153,6 +167,7 @@ class NuklonApp(ctk.CTk):
         self.check_playlist.configure(text=t["chk_playlist"])
         self.btn_check_url.configure(text=t["check_url"])
         self.btn_start_download.configure(text=t["start_download"])
+        self.btn_cancel_download.configure(text=t["btn_cancel"])
         self.lbl_path_title.configure(text=t["save_path"])
         self.btn_select_path.configure(text=t["change_path"])
         
@@ -160,12 +175,18 @@ class NuklonApp(ctk.CTk):
         self.btn_select_file.configure(text=t["conv_select_file"])
         self.lbl_target_format.configure(text=t["conv_target"])
         self.btn_convert.configure(text=t["conv_btn"])
+        self.btn_cancel_convert.configure(text=t["btn_cancel"])
 
         self.lbl_destek_title.configure(text=t["sidebar_support"])
         self.support_info_lbl.configure(text=t["support_text"])
         self.drive_nav_btn.configure(text=t["drive_btn"])
         
         self.btn_dl_drive.configure(text=t["btn_drive_dl"])
+        
+        self.custom_desc_textbox.configure(state="normal")
+        self.custom_desc_textbox.delete("0.0", "end")
+        self.custom_desc_textbox.insert("0.0", t["support_custom"])
+        self.custom_desc_textbox.configure(state="disabled") 
         
         guncel_metin = self.ytdlp_status_label.cget("text")
         if "✅" in guncel_metin:
@@ -240,6 +261,10 @@ class NuklonApp(ctk.CTk):
         self.url_entry = ctk.CTkEntry(self.frame_indirici, placeholder_text=t["placeholder_url"], font=self.font_main, height=45, corner_radius=12, fg_color=self.card_color)
         self.url_entry.grid(row=1, column=0, padx=40, pady=10, sticky="ew")
         
+        self.right_click_menu = tk.Menu(self.url_entry, tearoff=False, bg="#2b2b2b", fg="white", borderwidth=0, activebackground=self.accent_color, activeforeground="black", font=("Roboto", 11))
+        self.right_click_menu.add_command(label=t["paste_label"], command=self.paste_to_entry)
+        self.url_entry.bind("<Button-3>", self.show_right_click_menu)
+
         self.playlist_var = ctk.BooleanVar(value=False)
         self.check_playlist = ctk.CTkCheckBox(self.frame_indirici, text=t["chk_playlist"], variable=self.playlist_var, font=self.font_main)
         self.check_playlist.grid(row=2, column=0, padx=40, pady=5, sticky="w")
@@ -271,6 +296,9 @@ class NuklonApp(ctk.CTk):
         self.btn_start_download = ctk.CTkButton(opt_inner, text=t["start_download"], font=self.font_bold, fg_color=self.accent_color, text_color="black", command=self.start_download_logic)
         self.btn_start_download.grid(row=0, column=1, pady=10)
 
+        self.btn_cancel_download = ctk.CTkButton(opt_inner, text=t["btn_cancel"], font=self.font_bold, fg_color="#ef4444", hover_color="#dc2626", text_color="white", width=80, state="disabled", command=self.cancel_download_logic)
+        self.btn_cancel_download.grid(row=0, column=2, padx=(10, 0), pady=10)
+
         path_frame = ctk.CTkFrame(self.options_frame, fg_color="transparent")
         path_frame.grid(row=1, column=0, sticky="w", pady=(5, 15))
         
@@ -285,6 +313,21 @@ class NuklonApp(ctk.CTk):
         self.progress_bar = ctk.CTkProgressBar(self.options_frame, corner_radius=12, height=10, progress_color=self.accent_color)
         self.progress_bar.set(0)
         self.lbl_progress_details = ctk.CTkLabel(self.options_frame, text=t["status_ready"], font=("Roboto", 12), text_color=self.text_muted)
+
+    def show_right_click_menu(self, event):
+        t = self.texts[self.current_lang]
+        self.right_click_menu.entryconfigure(0, label=t["paste_label"])
+        try:
+            self.right_click_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.right_click_menu.grab_release()
+
+    def paste_to_entry(self):
+        try:
+            pano_verisi = self.clipboard_get()
+            self.url_entry.insert("end", pano_verisi)
+        except:
+            pass
 
     def setup_converter_frame(self):
         self.frame_donusturucu = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -308,11 +351,16 @@ class NuklonApp(ctk.CTk):
         
         self.lbl_target_format = ctk.CTkLabel(self.conv_options, text=t["conv_target"], font=self.font_bold)
         self.lbl_target_format.grid(row=0, column=0, padx=(0, 10), sticky="w")
-        self.conv_combo = ctk.CTkComboBox(self.conv_options, values=["mp3", "mp4", "wav", "avi", "mkv", "gif", "flac"], font=self.font_main)
+        
+        genisletilmis_formatlar = ["mp3", "mp4", "wav", "avi", "mkv", "gif", "flac", "ogg", "mov", "wmv", "m4a", "aac"]
+        self.conv_combo = ctk.CTkComboBox(self.conv_options, values=genisletilmis_formatlar, font=self.font_main)
         self.conv_combo.grid(row=0, column=1, padx=10)
         
         self.btn_convert = ctk.CTkButton(self.conv_options, text=t["conv_btn"], font=self.font_bold, fg_color=self.accent_color, text_color="black", command=self.start_convert_logic)
         self.btn_convert.grid(row=0, column=2, padx=10)
+
+        self.btn_cancel_convert = ctk.CTkButton(self.conv_options, text=t["btn_cancel"], font=self.font_bold, fg_color="#ef4444", hover_color="#dc2626", text_color="white", width=80, state="disabled", command=self.cancel_convert_logic)
+        self.btn_cancel_convert.grid(row=0, column=3, padx=(10, 0))
 
         self.conv_progress = ctk.CTkProgressBar(self.frame_donusturucu, corner_radius=12, height=10, progress_color=self.accent_color)
         self.conv_progress.set(0)
@@ -331,7 +379,7 @@ class NuklonApp(ctk.CTk):
         self.textbox_notlar = ctk.CTkTextbox(self.frame_notlar, font=self.font_main, corner_radius=12, fg_color=self.card_color)
         self.textbox_notlar.grid(row=1, column=0, padx=40, pady=(0, 40), sticky="nsew")
         
-        metin = f"=== NÜKLON MEDYA İSTASYONU V1.7 ===\nYENİLİKLER (V1.7):\n+ Siyah açılış ekranı (CMD) tamamen gizlendi.\n+ Dönüştürücüye Toplu Dosya (Batch) desteği ve saniyelik okuma yapan FFprobe ilerleme yüzdesi eklendi.\n+ Uluslararası, bayraklı ve açılır menülü (Dropdown) dil seçici eklendi.\n+ Akıllı yt-dlp durum göstergesi sol menüye entegre edildi.\n------------------------------------------------\nV1.6 - İngilzce Dil Seçeneği Eklendi.\n------------------------------------------------\nV1.5 - Modern Nesne Yönelimli Mimari\n+ Arayüz tamamen class yapısıyla (OOP) sıfırdan kodlandı."
+        metin = f"=== NÜKLON MEDYA İSTASYONU V1.8 ===\nYENİLİKLER (V1.8):\n+ Uygulama kararlılığı ve performansı artırıldı.\n+ İndirme ve dönüştürme işlemlerini anında sonlandıran dinamik 'İptal Et' butonları eklendi.\n+ Link kutusuna farenin sağ tuşu ile 'Yapıştır' seçeneği eklendi.\n+ Dönüştürücüye Toplu Dosya (Batch) desteği ve saniyelik FFprobe ilerleme yüzdesi eklendi.\n+ Uluslararası, bayraklı ve açılır menülü (Dropdown) dil seçici eklendi.\n------------------------------------------------\nV1.7 - Otonom İyileştirmeler\n+ Siyah açılış ekranı (CMD) tamamen gizlendi.\n+ Akıllı yt-dlp durum göstergesi sol menüye entegre edildi.\n+ Destek sekmesine programcıya ait özel açıklama alanı eklendi.\n------------------------------------------------\nV1.6 - Arayüz yeniden tasarlandı\n------------------------------------------------\nV1.5 ve öncesi için destek sonlanmıştır"
         self.textbox_notlar.insert("0.0", metin)
         self.textbox_notlar.configure(state="disabled") 
 
@@ -346,20 +394,18 @@ class NuklonApp(ctk.CTk):
         card = ctk.CTkFrame(self.frame_destek, corner_radius=12, fg_color=self.card_color)
         card.grid(row=1, column=0, padx=40, pady=10, sticky="ew")
         
+        self.custom_desc_textbox = ctk.CTkTextbox(card, font=self.font_main, height=85, fg_color=("gray80", "#2b2b2b"), corner_radius=8)
+        self.custom_desc_textbox.pack(pady=(20, 10), padx=20, fill="x")
+        self.custom_desc_textbox.insert("0.0", t["support_custom"])
+        self.custom_desc_textbox.configure(state="disabled") 
+        
         self.support_info_lbl = ctk.CTkLabel(card, text=t["support_text"], font=self.font_main, justify="center")
-        self.support_info_lbl.pack(pady=30, padx=20)
+        self.support_info_lbl.pack(pady=(10, 20), padx=20)
         
         self.drive_nav_btn = ctk.CTkButton(card, text=t["drive_btn"], font=self.font_bold, height=45, fg_color="#4285F4", hover_color="#2c6cd6", command=lambda: webbrowser.open(DRIVE_LINK))
         self.drive_nav_btn.pack(pady=10)
         
         ctk.CTkButton(card, text="▶️ YouTube", font=self.font_bold, height=45, fg_color="#FF0000", hover_color="#cc0000", command=lambda: webbrowser.open(VIDEO_LINK)).pack(pady=(10, 30))
-
-    # --- LOJİK METOTLAR ---
-    def select_download_path(self):
-        klasor = filedialog.askdirectory()
-        if klasor:
-            self.download_path = klasor
-            self.lbl_path.configure(text=klasor if len(klasor) < 35 else "..." + klasor[-32:])
 
     def check_url_logic(self):
         url = self.url_entry.get()
@@ -381,6 +427,17 @@ class NuklonApp(ctk.CTk):
         finally: 
             self.after(0, lambda: self.btn_check_url.configure(state="normal"))
 
+    def select_download_path(self):
+        klasor = filedialog.askdirectory()
+        if klasor:
+            self.download_path = klasor
+            self.lbl_path.configure(text=klasor if len(klasor) < 35 else "..." + klasor[-32:])
+
+    def cancel_download_logic(self):
+        self.cancel_download_flag = True
+        self.btn_cancel_download.configure(state="disabled")
+        self.lbl_progress_details.configure(text="İptal ediliyor...", text_color="orange")
+
     def start_download_logic(self):
         url = self.url_entry.get()
         res = self.format_combo.get()
@@ -395,8 +452,14 @@ class NuklonApp(ctk.CTk):
         threading.Thread(target=self._download_thread, args=(url, res, pl), daemon=True).start()
 
     def _download_thread(self, url, res, pl):
+        self.cancel_download_flag = False
+        self.after(0, lambda: self.btn_cancel_download.configure(state="normal"))
+        
         try:
             def hook(d):
+                if getattr(self, 'cancel_download_flag', False):
+                    raise Exception("USER_CANCEL")
+                    
                 if d['status'] == 'downloading':
                     p_str = d.get('_percent_str', '0%').replace('%', '').strip()
                     p_str = re.sub(r'\x1b[^m]*m', '', p_str) 
@@ -437,31 +500,41 @@ class NuklonApp(ctk.CTk):
             self.after(0, lambda: self.progress_bar.set(1))
             
         except Exception as e:
-            self.after(0, lambda e=e: self.lbl_progress_details.configure(text=f"❌ Hata: {str(e)[:50]}...", text_color="red"))
+            if "USER_CANCEL" in str(e):
+                t = self.texts[self.current_lang]
+                self.after(0, lambda: self.lbl_progress_details.configure(text=t["status_cancelled"], text_color="red"))
+            else:
+                self.after(0, lambda e=e: self.lbl_progress_details.configure(text=f"❌ Hata: {str(e)[:50]}...", text_color="red"))
         finally: 
             self.after(0, lambda: self.btn_start_download.configure(state="normal"))
+            self.after(0, lambda: self.btn_cancel_download.configure(state="disabled"))
 
-    # --- YENİ ÇOKLU SEÇİM VE FFPROBE ENTEGRASYONU ---
     def select_file_logic(self):
-        # askopenfilename yerine askopenfilenames (çoğul) kullanıyoruz
         yollar = filedialog.askopenfilenames()
         if yollar:
             self.secilen_dosyalar = list(yollar)
             t = self.texts[self.current_lang]
-            
             if len(self.secilen_dosyalar) == 1:
                 self.lbl_selected_file.configure(text=os.path.basename(self.secilen_dosyalar[0]))
             else:
                 self.lbl_selected_file.configure(text=t["files_selected"].format(len(self.secilen_dosyalar)))
 
     def _get_duration(self, dosya_yolu):
-        """ ffprobe ile medya dosyasının toplam süresini saniye cinsinden bulur """
         try:
             cmd = [FFPROBE_YOLU, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", dosya_yolu]
             sonuc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
             return float(sonuc.stdout.strip())
         except:
             return 0.0
+
+    def cancel_convert_logic(self):
+        self.cancel_convert_flag = True
+        self.btn_cancel_convert.configure(state="disabled")
+        if hasattr(self, 'current_ffmpeg_process') and self.current_ffmpeg_process:
+            try:
+                self.current_ffmpeg_process.kill()
+            except:
+                pass
 
     def start_convert_logic(self):
         if not self.secilen_dosyalar: return
@@ -472,43 +545,51 @@ class NuklonApp(ctk.CTk):
         threading.Thread(target=self._convert_batch_thread, args=(self.conv_combo.get(),), daemon=True).start()
 
     def _convert_batch_thread(self, fmt):
+        self.cancel_convert_flag = False
+        self.after(0, lambda: self.btn_cancel_convert.configure(state="normal"))
+        
         t = self.texts[self.current_lang]
         toplam_dosya = len(self.secilen_dosyalar)
         
-        # Seçilen tüm dosyaları sırayla işlemek için döngü (Batch Processing)
         for index, dosya in enumerate(self.secilen_dosyalar):
-            # Durum metnini (1/3) dönüştürülüyor şeklinde güncelle
+            if getattr(self, 'cancel_convert_flag', False):
+                break 
+                
             self.after(0, lambda i=index+1: self.lbl_conv_status.configure(text=t["conv_batch_status"].format(i, toplam_dosya), text_color=self.text_muted))
             self.after(0, lambda: self.conv_progress.set(0))
             
-            # 1. Dosyanın toplam süresini bul
             sure = self._get_duration(dosya)
             cikti = os.path.splitext(dosya)[0] + f"_new.{fmt}"
-            
-            # 2. FFmpeg ile dönüştürme işlemini canlı okuma (pipe) modunda başlat
             cmd = [FFMPEG_YOLU, "-y", "-i", dosya, cikti]
+            
             try:
-                process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8', errors='ignore', creationflags=subprocess.CREATE_NO_WINDOW)
+                self.current_ffmpeg_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True, encoding='utf-8', errors='ignore', creationflags=subprocess.CREATE_NO_WINDOW)
                 
-                # FFmpeg'in anlık çıktılarını (stderr) satır satır oku
-                for line in process.stderr:
+                for line in self.current_ffmpeg_process.stderr:
+                    if getattr(self, 'cancel_convert_flag', False):
+                        self.current_ffmpeg_process.kill()
+                        break
+                        
                     if "time=" in line and sure > 0:
-                        # "time=00:01:23.45" gibi metinden zamanı ayıkla
                         match = re.search(r"time=(\d+):(\d+):(\d+\.\d+)", line)
                         if match:
                             h, m, s = match.groups()
                             gecen_sure = float(h)*3600 + float(m)*60 + float(s)
                             oran = min(gecen_sure / sure, 1.0)
                             self.after(0, lambda o=oran: self.conv_progress.set(o))
-                process.wait()
+                            
+                self.current_ffmpeg_process.wait()
             except Exception as e:
-                self.after(0, lambda err=e: print(f"Dönüştürme Hatası: {err}"))
                 continue
                 
-        # Tüm döngü bittiğinde
-        self.after(0, lambda: self.lbl_conv_status.configure(text=t["conv_all_success"], text_color="green"))
-        self.after(0, lambda: self.conv_progress.set(1))
+        if getattr(self, 'cancel_convert_flag', False):
+            self.after(0, lambda: self.lbl_conv_status.configure(text=t["status_cancelled"], text_color="red"))
+        else:
+            self.after(0, lambda: self.lbl_conv_status.configure(text=t["conv_all_success"], text_color="green"))
+            self.after(0, lambda: self.conv_progress.set(1))
+            
         self.after(0, lambda: self.btn_convert.configure(state="normal"))
+        self.after(0, lambda: self.btn_cancel_convert.configure(state="disabled"))
 
     def check_auto_update(self):
         threading.Thread(target=self._yt_dlp_check, daemon=True).start()
