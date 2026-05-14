@@ -1,4 +1,7 @@
 EN
+
+You only need to download the .exe file for the application to work.
+
 Nuklon-Media-Station
 A video downloader made with yt-dlp and ffmpeg
 
@@ -53,6 +56,9 @@ If you wish to compile or develop the project on your own machine:
 This software has been developed solely for personal, educational purposes within the framework of fair use. Unauthorized downloading or distribution of copyrighted materials is prohibited. The developer cannot be held responsible for any misuse of this software.
 
 TR
+
+Uygulamanın çalışması için sadece .exe dosyasını indirmeniz yeterlidir.
+
 Nüklon Medya İstasyonu, internet üzerindeki medyaları yüksek kalitede bilgisayarınıza indirmenizi ve elinizdeki medya dosyalarının formatlarını değiştirmenizi sağlayan modern, hızlı ve kullanıcı dostu bir masaüstü uygulamasıdır. 
 
 Proje, tamamen **Nesne Yönelimli Programlama (OOP)** mimarisiyle Python üzerinde inşa edilmiş olup, gücünü `yt-dlp` ve `FFmpeg` altyapılarından almaktadır.
